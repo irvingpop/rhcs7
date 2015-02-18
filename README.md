@@ -8,11 +8,13 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
 ## Quick start
 
 1. Initial configuration of the cluster machines, backend0 and backend1:
-  ```
+  ```bash
+  
   vagrant up
   ```
 2. Shut them down, to finish attaching the cluster shared disk:
   ```bash
+  
   vagrant halt
   VBoxManage storageattach backend1.opscode.piab --storagectl "SCSI" --port 0 --device 0 --nonrotational on --type hdd --medium cluster_shared.vdi --mtype shareable
   vagrant up
@@ -148,6 +150,7 @@ Now you're done!
   ```
 2. on the standby node
   ```bash
+  
   [root@backend1 ~]# lvs
     LV    VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
     root  centos    -wi-ao---- 38.48g
