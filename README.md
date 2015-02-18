@@ -11,14 +11,12 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
 ```
 vagrant up
 ```
-
 2. Shut them down, to finish attaching the cluster shared disk:
 ```bash
-# vagrant halt
-# VBoxManage storageattach backend1.opscode.piab --storagectl "SCSI" --port 0 --device 0 --nonrotational on --type hdd --medium cluster_shared.vdi --mtype shareable
-# vagrant up
+vagrant halt
+VBoxManage storageattach backend1.opscode.piab --storagectl "SCSI" --port 0 --device 0 --nonrotational on --type hdd --medium cluster_shared.vdi --mtype shareable
+vagrant up
 ```
-
 3. Open two Terminal windows/tabs, and 'vagrant ssh' to each machine and become root
 ```bash
 vagrant ssh backend0
@@ -28,8 +26,8 @@ sudo -i
 
 # OR
 csshX vagrant@33.33.33.21 vagrant@33.33.33.22
+sudo -i
 ```
-
 4. Run the following commands on both nodes
 ```bash
 # install clustering packages
@@ -45,7 +43,6 @@ systemctl enable pcsd.service
 # create the mountpoint directory
 mkdir -p /var/opt/opscode/drbd/data
 ```
-
 5. Run the following commands on the first cluster node only
 ```bash
 # authorize cluster
@@ -77,7 +74,6 @@ pcs constraint colocation add clvmd-clone with dlm-clone
 # stop lvmetad
 killall lvmetad
 ```
-
 6. Run the following on the second cluster node:
 ```
 pcs cluster auth backend0 backend1
@@ -86,7 +82,6 @@ lvmconf --enable-cluster
 # stop lvmetad
 killall lvmetad
 ```
-
 7. Back to the first cluster node:
 ```
 
@@ -118,7 +113,6 @@ lvchange -aey shared_vg/ha_lv
 mkfs.xfs /dev/shared_vg/ha_lv
 mount /dev/shared_vg/ha_lv /var/opt/opscode/drbd/data
 ```
-
 8. Update the initramfs device on all your cluster nodes, so that the CLVM volume is never auto-mounted:
 ```
 determine your root VG using the "vgs" command.
@@ -152,7 +146,6 @@ Now you're done!
   swap  centos    -wi-ao----  1.03g
   ha_lv shared_vg -wi-------  3.20g
 ```
-
 2. on the standby node
 ```bash
 [root@backend1 ~]# lvs
