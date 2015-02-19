@@ -12,7 +12,7 @@ cluster_disk = ::File.join(::File.dirname(__FILE__), 'cluster_shared.vdi')
   outer_config.vm.provider :virtualbox do |v|
     unless ::File.exists?(cluster_disk)
       v.customize [
-        'createhd', '--filename', cluster_disk, '--size', '4096', '--variant', 'Fixed'
+        'createhd', '--filename', cluster_disk, '--size', '1024', '--variant', 'Fixed'
       ]
       v.customize [
         'modifyhd', cluster_disk, '--type', 'shareable'
@@ -35,19 +35,17 @@ cluster_disk = ::File.join(::File.dirname(__FILE__), 'cluster_shared.vdi')
         '--usb', 'off',
         '--usbehci', 'off'
       ]
-      unless controller_exists?(config.vm.hostname, 'SCSI')
+      unless controller_exists?(config.vm.hostname, 'SAS')
         v.customize [
           'storagectl', :id,
-          '--name', 'SCSI',
-          '--add', 'scsi',
-          '--controller', 'LSILogic',
-          '--hostiocache', 'on',
+          '--name', 'SAS',
+          '--add', 'sas',
           '--bootable', 'off'
         ]
       end
       v.customize [
         'storageattach', :id,
-        '--storagectl', 'SCSI',
+        '--storagectl', 'SAS',
         '--port', '0',
         '--device', '0',
         '--nonrotational', 'on',
@@ -72,20 +70,18 @@ cluster_disk = ::File.join(::File.dirname(__FILE__), 'cluster_shared.vdi')
         '--usb', 'off',
         '--usbehci', 'off'
       ]
-      unless controller_exists?(config.vm.hostname, 'SCSI')
+      unless controller_exists?(config.vm.hostname, 'SAS')
         v.customize [
           'storagectl', :id,
-          '--name', 'SCSI',
-          '--add', 'scsi',
-          '--controller', 'LSILogic',
-          '--hostiocache', 'on',
+          '--name', 'SAS',
+          '--add', 'sas',
           '--bootable', 'off'
         ]
       end
       # ugh, because https://www.virtualbox.org/ticket/13850
       # v.customize [
       #   'storageattach', :id,
-      #   '--storagectl', 'SCSI',
+      #   '--storagectl', 'SAS',
       #   '--port', '0',
       #   '--device', '0',
       #   '--nonrotational', 'on',

@@ -16,7 +16,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
   ```bash
   
   vagrant halt
-  VBoxManage storageattach backend1.opscode.piab --storagectl "SCSI" --port 0 --device 0 --nonrotational on --type hdd --medium cluster_shared.vdi --mtype shareable
+  VBoxManage storageattach backend1.opscode.piab --storagectl "SAS" --port 0 --device 0 --nonrotational on --type hdd --medium cluster_shared.vdi --mtype shareable
   vagrant up
   ```
 3. Open two Terminal windows/tabs, and 'vagrant ssh' to each machine and become root
@@ -33,7 +33,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
 4. Run the following commands on both nodes
   ```bash
   # install clustering packages
-  yum install pcs fence-agents-all lvm2-cluster
+  yum -y install pcs fence-agents-all lvm2-cluster
   
   # set hacluster user password
   echo "hacluster" | passwd hacluster --stdin
@@ -48,11 +48,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
 5. Run the following commands on the first cluster node only
   ```bash
   # authorize cluster
-  [root@backend0 ~]# pcs cluster auth backend0 backend1
-  Username: hacluster
-  Password: (hacluster)
-  backend0: Authorized
-  backend1: Already authorized
+  pcs cluster auth backend0 backend1 -u hacluster -p hacluster
   
   # setup cluster
   pcs cluster setup --start --name chef-ha backend0 backend1
@@ -62,8 +58,9 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
   pcs cluster status
   
   # enable SCSI fence mode (uses SPC-3)
-  pcs stonith create scsi fence_scsi
+  pcs stonith create scsi fence_scsi devices=/dev/sdb meta provides=unfencing
   sleep 5
+  # this might show stopped
   pcs stonith show
   
   # enable LVM clustering with clvmd
@@ -78,7 +75,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
   ```
 6. Run the following on the second cluster node:
   ```
-  pcs cluster auth backend0 backend1
+  pcs cluster auth backend0 backend1 -u hacluster -p hacluster
   lvmconf --enable-cluster
   
   # stop lvmetad
