@@ -60,7 +60,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
   # enable SCSI fence mode (uses SPC-3)
   pcs stonith create scsi fence_scsi devices=/dev/sdb meta provides=unfencing
   sleep 5
-  # this might show stopped
+  # this might show stopped, no problem
   pcs stonith show
   
   # enable LVM clustering with clvmd
@@ -111,6 +111,7 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
   # format the volume and mount it
   mkfs.xfs /dev/shared_vg/ha_lv
   mount /dev/shared_vg/ha_lv /var/opt/opscode/drbd/data
+
   ```
 8. Update the initramfs device on all your cluster nodes, so that the CLVM volume is never auto-mounted:
   ```
@@ -124,6 +125,26 @@ Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linu
     volume_list = [ "centos", "@backend1" ]
   
   dracut -H -f /boot/initramfs-$(uname -r).img $(uname -r)
+  ```
+
+9. Add an LVM resource
+  ```
+  # first unmount and deactivate
+  umount /var/opt/opscode/drbd/data
+  lvchange -an shared_vg/ha_lv
+
+
+  pcs resource create ha_lv ocf:heartbeat:LVM volgrpname=shared_vg exclusive=true --group chef_ha
+  pcs resource debug-start ha_lv
+  pcs resource create chef_data Filesystem device="/dev/shared_vg/ha_lv" directory="/var/opt/opscode/drbd/data" fstype="xfs" --group chef_ha
+  pcs resource debug-start chef_data
+  pcs resource create backend_vip IPaddr2 ip=33.33.33.5 cidr_netmask=24 --group chef_ha
+  pcs resource debug-start backend_vip
+
+
+  # debugging
+  export OCF_RESKEY_volgrpname=shared_vg OCF_RESKEY_exclusive=true OCF_ROOT=/usr/lib/ocf
+  bash -x /usr/lib/ocf/resource.d/heartbeat/LVM start
   ```
 
 Now you're done!
