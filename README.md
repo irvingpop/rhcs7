@@ -5,9 +5,11 @@ A Vagrant-based configuration that brings up two CentOS 7 nodes that share a clu
 Based on:  https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/High_Availability_Add-On_Administration/ch-startup-HAAA.html
 with clarification from: http://www.davidvossel.com/wiki/index.php?title=HA_LVM
 
+Ultimate goal: Find a way to couple Redhat clustering with Chef Server to create a more robust HA stack.
+
 ## Notes
 
-* Redhat clustering is HARD.  It's not nearly as well documented as it should be, there's quite a few closely interconnected services and you should really take time out to understand it on its own before combining it with anything else.
+* Redhat clustering is HARD and not for the faint of heart.  It's not nearly as well documented as it should be, there's quite a few closely interconnected services and you should really take time out to understand it on its own before combining it with anything else.
   - Redhat clustering in EL5 and EL6 was pretty awful to operate and hard to understand.  It has been majorly redone in RHEL7 and is now considerably simpler to get going.
 * This document and repo focus on the *shared storage* use case, where two nodes have access to the same block device but only one node can actively mount and write to it at a time. The simultaneous access use cases (GFS, OCFS, etc) are not covered here.
 * Initially I tried to use Virtualbox "shareable" block devices but this didn't work because it doesn't support the SCSI SPC-3 feature set.  This is important because the only applicable fence agent I could use is fence_scsi, which uses SCSI SPC-3 persistent reservations ( https://kb.netapp.com/support/index?page=content&id=3012956 )
@@ -94,7 +96,7 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   ```
 
 ## Base Cluster Setup
-4. Run the following commands on both nodes
+1. Run the following commands on both nodes
   ```bash
   # install clustering packages
   yum -y install pcs fence-agents-all lvm2-cluster
@@ -110,7 +112,7 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   mkdir -p /var/opt/opscode/drbd/data
   #
   ```
-5. Run the following commands on the first cluster node only
+2. Run the following commands on the first cluster node only
   ```bash
   # authorize cluster
   pcs cluster auth backend0 backend1 -u hacluster -p hacluster
@@ -129,8 +131,12 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   pcs stonith show
   #  scsi (stonith:fence_scsi): Started
   ```
+3. And on the 2nd cluster node:
+  ```bash
+  pcs cluster auth backend0 backend1 -u hacluster -p hacluster
+  ```
 
-## Option 1: Leader Election and LVM Volume failover without CLVM (using tagging and fencing)
+## Option 1: Leader Election and LVM Volume failover without CLVM
 1. on the first cluster node:
   ```bash
   
@@ -164,7 +170,7 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   mkfs.xfs /dev/shared_vg/ha_lv
 
   ```
-8. Update the initramfs device on all your cluster nodes, so that the CLVM volume is never auto-mounted:
+2. Update the initramfs device on all your cluster nodes, so that the CLVM volume is never auto-mounted:
   ```
   determine your root VG using the "vgs" command.
   
@@ -179,10 +185,12 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   # update initramfs and reboot
   dracut -H -f /boot/initramfs-$(uname -r).img $(uname -r)
   shutdown -h now
-  # then vagrant up again once they're down
   ```
-
-9. Add an LVM resource
+3. then bring both nodes back up
+  ```bash
+  vagrant up backend0 backend1
+  ```
+4. Add an LVM resource
   ```
   # first unmount and deactivate
   lvchange -an shared_vg/ha_lv
@@ -217,16 +225,15 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   killall lvmetad
   #
   ```
-6. Run the following on the second cluster node:
+2. Run the following on the second cluster node:
   ```
-  pcs cluster auth backend0 backend1 -u hacluster -p hacluster
   lvmconf --enable-cluster
   
   # stop lvmetad
   killall lvmetad
   #
   ```
-7. Back to the first cluster node:
+3. Back to the first cluster node:
   ```bash
   
   # examine cluster status and ensure all resources are Started/Online
@@ -258,8 +265,7 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   # format the volume and mount it
   mkfs.xfs /dev/shared_vg/ha_lv
   ```
-
-9. Add an LVM resource (this is where shit gets whacky)
+4. Add an LVM resource (this is where shit gets whacky)
   ```
   # first unmount and deactivate
   vgchange -an shared_vg
@@ -287,9 +293,9 @@ Now you're done!
 1. bringing down backend0
   * Option 1:  shut down backend0 `shutdown -h now`
   * Option 2:  make it a standby via Pacemaker `pcs cluster standby backend0`
+
 2. failover of resources should be automatic to the secondary node:
   ```bash
-  #
   pcs status
   # Cluster name: chef-ha
   # Last updated: Sat Mar 14 21:55:56 2015
