@@ -366,8 +366,9 @@ Now you're done!
   #   pcsd: active/enabled
   ```
 4. If backend0 is considered standby, you can just unstandby it:
-  ```
+  ```bash
   pcs cluster unstandby backend0
+  
   pcs status
   # Cluster name: chef-ha
   # Last updated: Sat Mar 14 22:11:53 2015
