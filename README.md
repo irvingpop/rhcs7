@@ -368,7 +368,7 @@ Now you're done!
 4. If backend0 is considered standby, you can just unstandby it:
   ```bash
   pcs cluster unstandby backend0
-  
+
   pcs status
   # Cluster name: chef-ha
   # Last updated: Sat Mar 14 22:11:53 2015
@@ -387,6 +387,7 @@ Now you're done!
   # LVM will be nice, but won't let you
   vgchange -aey shared_vg
   # 0 logical volume(s) in volume group "shared_vg" now active
+  
   lvchange -aey shared_vg/ha_lv
   lvs
   # LV    VG        Attr       LSize   Pool Origin Data%  Move Log Cpy%Sync Convert
