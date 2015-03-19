@@ -154,59 +154,52 @@ from: https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/h
   lvchange -aey shared_vg
   #   1 logical volume(s) in volume group "shared_vg" now active
   
-  # run lvs on both nodes to ensure it only says active ("a") on backend0
-  lvs # on backend0
-  #  LV    VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
-  #  root  centos    -wi-ao---- 38.48g
-  #  swap  centos    -wi-ao----  1.03g
-  #  ha_lv shared_vg -wi-a-----  3.20g
-  lvs # on backend1
-  #  LV    VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
-  #  root  centos    -wi-ao---- 38.48g
-  #  swap  centos    -wi-ao----  1.03g
-  #  ha_lv shared_vg -wi-------  3.20g
-  
   # format the volume
   mkfs.xfs /dev/shared_vg/ha_lv
-
+  #
   ```
 2. Update the initramfs device on all your cluster nodes, so that the CLVM volume is never auto-mounted:
-  ```
-  determine your root VG using the "vgs" command.
-  
-  vi /etc/lvm/lvm.conf
-  # go to line 783
-  on backend0, set:
-    volume_list = [ "centos", "@backend0" ]
-  
-  on backend1, set:
-    volume_list = [ "centos", "@backend1" ]
-  
+  ```bash
+   
+  # Set the lvm configuration to not auto-mount anything but the root "centos" VG
+  # yes, the 783 part means the 783rd line of the file :\
+  sed -i.bak "783s/.*/    volume_list = [ \"centos\", \"@`hostname -s`\" ]/" /etc/lvm/lvm.conf
   # update initramfs and reboot
   dracut -H -f /boot/initramfs-$(uname -r).img $(uname -r)
+  # shutdown, but use vagrant to start them up
   shutdown -h now
+  #
   ```
 3. then bring both nodes back up
   ```bash
   vagrant up backend0 backend1
   ```
 4. Add an LVM resource
-  ```
-  # first unmount and deactivate
-  lvchange -an shared_vg/ha_lv
-
-
+  ```bash
+  # create resources for the LVM, filesystem and IP
   pcs resource create ha_lv ocf:heartbeat:LVM volgrpname=shared_vg exclusive=true --group chef_ha
-  pcs resource debug-start ha_lv
   pcs resource create chef_data Filesystem device="/dev/shared_vg/ha_lv" directory="/var/opt/opscode/drbd/data" fstype="xfs" --group chef_ha
-  pcs resource debug-start chef_data
   pcs resource create backend_vip IPaddr2 ip=33.33.33.5 cidr_netmask=24 --group chef_ha
-  pcs resource debug-start backend_vip
-
-
-  # debugging
+  #
+  
+  # debugging - only if things are going wrong
+  # run lvs on both nodes to ensure it only says active ("a") on backend0
+  lvs # on backend0
+  #  LV    VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
+  #  root  centos    -wi-ao---- 38.48g
+  #  swap  centos    -wi-ao----  1.03g
+  #  ha_lv shared_vg -wi-ao----  3.20g
+  lvs # on backend1
+  #  LV    VG        Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert
+  #  root  centos    -wi-ao---- 38.48g
+  #  swap  centos    -wi-ao----  1.03g
+  #  ha_lv shared_vg -wi-------  3.20g
   export OCF_RESKEY_volgrpname=shared_vg OCF_RESKEY_exclusive=true OCF_ROOT=/usr/lib/ocf
   bash -x /usr/lib/ocf/resource.d/heartbeat/LVM start
+  # or
+  pcs resource debug-start ha_lv
+  pcs resource debug-start chef_data
+  pcs resource debug-start backend_vip
   ```
 
 
@@ -387,7 +380,7 @@ Now you're done!
   # LVM will be nice, but won't let you
   vgchange -aey shared_vg
   # 0 logical volume(s) in volume group "shared_vg" now active
-  
+
   lvchange -aey shared_vg/ha_lv
   lvs
   # LV    VG        Attr       LSize   Pool Origin Data%  Move Log Cpy%Sync Convert
